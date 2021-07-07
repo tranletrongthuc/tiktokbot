@@ -5,3 +5,5 @@
 /downloaded/video_info.csv
 /downloaded/combinations
 /downloaded/downloads
+/.idea
+/TikTokApi/__pycache__

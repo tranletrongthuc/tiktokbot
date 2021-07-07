@@ -322,8 +322,7 @@ if __name__ == "__main__":
     elif args.mode == 1:
         get_trending(args.ntoptrending)
     elif args.mode == 2:
-        discover_hashtags(count_per_hashtag=args.nbytags, use_specifc_hashtags=args.specifchashtags,
-                          get_info_only=args.getinfoonly)
+        discover_hashtags(count_per_hashtag=args.nbytags, use_specifc_hashtags=args.specifchashtags)
     elif args.mode == 3:
         if args.listids == '':
             comb_ids = []

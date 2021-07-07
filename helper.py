@@ -46,10 +46,11 @@ def load_tags():
 
     try:
         loaded_hashtags = []
-        videos_info = pd.read_csv(conf.video_description_path, sep=";", header=None, encoding='utf-8', engine='python')
-        lines = videos_info.iloc[:, 3]
+        videos_info = load_description_data()
+        # videos_info = pd.read_csv(conf.video_description_path, sep=";", header=None, encoding='utf-8', engine='python')
+        lines = list(videos_info['tags'])
         for line in lines:
-            loaded_hashtags.extend(line.split("|"))
+            loaded_hashtags.extend([t for t in line.split("|") if t != ''])
         tags.extend(loaded_hashtags)
     except:
         pass
