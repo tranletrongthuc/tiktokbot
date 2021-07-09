@@ -166,9 +166,9 @@ def restore_conbine_videos(comb_ids_for_restore):
             print(f"Restore {comb_id} error: {e}")
             continue
 
-        restoring_combination_df = pd.DataFrame()
+        restoring_combination_df = pd.DataFrame(columns=list(videos_info.columns))
         for video_id in list(report_data['video_id']):
-            restoring_combination_df = restoring_combination_df.append(videos_info.loc[videos_info[0] == video_id, :])
+            restoring_combination_df = restoring_combination_df.append(videos_info.loc[video_id])
 
         comb = combination_obj(restoring_combination_df, all_comb_dir=output_dir, id=comb_id, restore=True)
         comb.create_description()

@@ -125,7 +125,8 @@ class combination_obj():
         self.video_timeline = []
         self.created_time = time.strftime(conf.time_str_format)
         self.is_restored = restore
-        self.make_combination_files()
+        if not restore:
+            self.make_combination_files()
         self.extract_info()
         self.load_videos_from_src()
 
@@ -141,8 +142,10 @@ class combination_obj():
         self.authors = list(self.info_df[self.author_col])
         self.tags = '|'.join(list(self.info_df[self.tag_col])).replace('tik', '').replace('tok', '')
         self.tags = self.tags.split("|")
-        self.file_paths = [path.replace("./downloaded", conf.base_dir).replace("\\", "/") for path in
-                           list(self.info_df[self.path_col])]
+        self.file_paths = [path.replace("./downloaded", conf.base_dir)
+                               .replace("/content/drive/MyDrive/tk100mil/storage", conf.base_dir)
+                               .replace("\\", "/")
+                           for path in list(self.info_df[self.path_col])]
 
     def make_combination_files(self):
         if not os.path.exists(conf.combination_dir):
@@ -249,11 +252,11 @@ class combination_obj():
         video_name = Path(video_path).name.replace(".mp4", "")
 
         # Get video infomation from data
-        video_info = self.info_df[self.info_df[0] == video_name][[1, 2]]
+        # video_info = self.info_df.loc[video_name][['author_name', 'views']]
 
         # Create 2 side posters
-        left_side_text = f"@{video_info.iloc[0, :][1]}"
-        right_side_text = f"{video_info.iloc[0, :][2]}M VIEWS"
+        left_side_text = f"{self.info_df.loc[video_name]['author_name'].replace('[','').replace(']','')}"
+        right_side_text = f"{self.info_df.loc[video_name]['views']}M VIEWS"
         left_side_poster_path = f"{self.src_videos_dir}/{video_name}_left.png"
         right_side_poster_path = f"{self.src_videos_dir}/{video_name}_right.png"
         helper.create_side_poster(left_side_text, 90, left_side_poster_path)
