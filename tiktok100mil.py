@@ -209,7 +209,7 @@ def conbine_videos(min_duration=900, no_claimed=True, min_views=100):
             if sum(comb_df['duration']) <= min_duration:
                 comb = combination_obj(comb_df, conf.combination_dir)
                 comb.create_description()
-                comb.concatenate_media()
+                # comb.concatenate_media()
                 comb_df.drop(comb_df.index, inplace=True)
                 print(f"Break {conf.combination_dir}")
                 break
@@ -223,7 +223,7 @@ def conbine_videos(min_duration=900, no_claimed=True, min_views=100):
                 # combination_df.sort_values(by=[2])
                 comb = combination_obj(combination_df, conf.combination_dir)
                 comb.create_description()
-                comb.concatenate_media()
+                # comb.concatenate_media()
                 combination_df = pd.DataFrame(columns=comb_df.columns)
 
 

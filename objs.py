@@ -93,6 +93,10 @@ class video_obj():
             video_info_df = helper.load_description_data()
             if self.is_downloaded == 1:
                 video_info_df.update(pd.DataFrame([self.create_datapoint()]).set_index('id'))
+                # columns_to_update = list(conf.description_datapoint.keys())[1:15]
+                # values_to_update = list(self.create_datapoint().values())[1:15]
+                # video_info_df.loc[self.id, columns_to_update] = values_to_update
+
             elif self.is_downloaded == 0:
                 self.is_downloaded = 1
                 video_info_df = video_info_df.append(pd.DataFrame([self.create_datapoint()]).set_index('id'))
@@ -160,16 +164,17 @@ class combination_obj():
             if video_info['statusCode'] == 0:
                 video_item = video_obj(video_item_data=video_info['itemInfo']['itemStruct'])
                 video_item.local_download_path = f"{self.src_videos_dir}/{video_item.id}.mp4"
+                time.sleep(1)
                 download_success = video_item.download()
                 if not download_success:
                     download_failed.append(video_id)
+                else:
+                    self.info_df.loc[video_item.id, 'local_download_path'] = video_item.local_download_path
                 time.sleep(1)
             else:
                 download_failed.append(video_id)
 
         self.info_df = self.info_df.drop(download_failed)
-
-
 
         # for path in self.file_paths:
         #     video_dir, video_name = os.path.split(path)
@@ -350,16 +355,17 @@ class combination_obj():
             timeline += round(float(video.duration + transfer_duration), 0)
             self.video_timeline.append(f"{timedelta(seconds=int(timeline))}")
 
-        body_ = video_intro + '\n'.join([f"{timeline} - {row['id']} ({row['views']}M views)" for timeline, row in
-                                         zip(self.video_timeline, list(self.info_df[self.post_info_col].values))])
+        body_ = video_intro + '\n'.join([f"{timeline} - {row[0]} - {row[1].replace('[','').replace(']','')} ({row[2]}M views)"
+                                         for timeline, row in zip(self.video_timeline, list(self.info_df[self.post_info_col].values))])
 
         fotter_ = []
         # get tags from top5 videos
-        fotter_.extend(','.join(list(top5_videos[['author', 'author_name']])))
+        fotter_.extend(list(top5_videos['author']))
+        fotter_.extend(list(top5_videos['author_name']))
         # get top 10 most common tags from videos
         fotter_.extend(list(list(dict(collections.Counter(self.tags).most_common(5)).keys())))
-        # fotter_ = ',tiktok '.join(list(set(fotter_)))
-
+        fotter_ = ','.join(list(set(fotter_)))
+        fotter_ = fotter_.replace("[","").replace("]","")
         description = f"{head_}\n\n{body_}\n\n{fotter_}"
 
         with open(os.path.join(self.comb_dir, f"description_{self.id}.txt"), 'w', encoding='utf-8') as des_f:
@@ -367,10 +373,10 @@ class combination_obj():
 
         # create report file
         if not self.is_restored:
-            report_infos = [[row[0], timeline[2:], row[8], row[9], 0] for timeline, row in
-                            zip(self.video_timeline, list(self.info_df.values))]
+            report_infos = [[row[0], timeline[2:], row[16], row[17], 0] for timeline, row in
+                            zip(self.video_timeline, list(self.info_df.reset_index().values))]
             report_df = pd.DataFrame(data=report_infos,
                                      columns=['video_id', 'timeline', 'claimed', 'uploaded', 'is_edited'])
-            report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=';', encoding='utf-8')
+            report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=';', index=False, encoding='utf-8')
         return description
 
