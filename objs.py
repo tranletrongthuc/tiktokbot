@@ -12,6 +12,7 @@ from moviepy.video import fx
 from tqdm import tqdm
 from datetime import timedelta
 import  collections
+import shutil
 from TikTokApi.tiktok import TikTokApi
 from tiktokdownloader import TikTokDownloader
 
@@ -204,8 +205,24 @@ class combination_obj():
         snapshot_video_width = 154
 
         expected_paths = []
-        for _ in range(6):
-            expected_paths.append(random.sample(self.file_paths, k=6))
+
+        file_paths = self.file_paths.copy()
+        amount_of_batchs = 0
+        if len(self.file_paths)/6 >= 6:
+            amount_of_batchs = 6
+        elif 3 <= len(self.file_paths)/6 < 6:
+            amount_of_batchs = 3
+
+        amount_of_videos_each_batch = 6
+
+        for _ in range(amount_of_batchs):
+            if len(file_paths) >= amount_of_videos_each_batch:
+                batch = random.sample(file_paths, k=amount_of_videos_each_batch)
+            else:
+                batch = file_paths.copy()
+
+            expected_paths.append(batch)
+            file_paths = list(set(file_paths) - set(batch))
 
         batches = []
         batch_id = 1
@@ -239,13 +256,21 @@ class combination_obj():
             batches.append(concanated_snapshot_videos)
             batch_id += 1
 
-        lst_line_1 = [batches[0].crossfadein(0.5), batches[1].crossfadein(1), batches[2].crossfadein(1.5)]
-        lst_line_2 = [batches[3].crossfadein(1.5), batches[4].crossfadein(2), batches[5].crossfadein(2.5)]
-        line_1 = mp.clips_array([lst_line_1])
-        line_2 = mp.clips_array([lst_line_2])
-        mp.CompositeVideoClip([intro_background_video, line_1.set_position(("right", "top")),
-                               line_2.set_position(("left", "bottom"))]).write_videofile(self.intro_path, fps=30,
+        if amount_of_batchs == 6:
+            lst_line_1 = [batches[0].crossfadein(0.5), batches[1].crossfadein(1), batches[2].crossfadein(1.5)]
+            lst_line_2 = [batches[3].crossfadein(1.5), batches[4].crossfadein(2), batches[5].crossfadein(2.5)]
+            line_1 = mp.clips_array([lst_line_1])
+            line_2 = mp.clips_array([lst_line_2])
+            mp.CompositeVideoClip([intro_background_video, line_1.set_position(("right", "top")),
+                                   line_2.set_position(("left", "bottom"))]).write_videofile(self.intro_path, fps=30,
                                                                                          logger=None)
+        elif amount_of_batchs == 3:
+            lst_line_2 = [batches[0].crossfadein(0.5), batches[1].crossfadein(1), batches[2].crossfadein(1.5)]
+            line_2 = mp.clips_array([lst_line_2])
+            mp.CompositeVideoClip([intro_background_video, line_2.set_position(("left", "bottom"))]).write_videofile(self.intro_path, fps=30,
+                                                                                             logger=None)
+        elif amount_of_batchs == 0:
+            shutil.copyfile(f"{conf.source_dir}/intro_background.mp4", self.intro_path)
 
     def create_single_video(self, video_index, video_path, next_video_path=None):
         video = mp.VideoFileClip(video_path).resize(height=1080).crossfadein(0.5)
@@ -298,7 +323,7 @@ class combination_obj():
 
         edited_video = mp.CompositeVideoClip(
             [self.backgrounf_video.subclip(0, edited_video.duration),
-             edited_video.resize(width=1080).set_position(("center", "top"))])
+             edited_video.resize(width=1080).set_position(("center", "center"))])
 
         # Fit square frame
         edited_video.write_videofile(f"{self.edited_videos_dir}/{video_index + 1}_{video_name}.mp4", fps=30,
@@ -380,6 +405,7 @@ class combination_obj():
                             zip(self.video_timeline, list(self.info_df.reset_index().values))]
             report_df = pd.DataFrame(data=report_infos,
                                      columns=['video_id', 'timeline', 'claimed', 'uploaded', 'is_edited'])
-            report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=';', index=False, encoding='utf-8')
+            # report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=',', index=False, encoding='utf-8')
+            report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=',', encoding='utf-8')
         return description
 
