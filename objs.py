@@ -406,6 +406,6 @@ class combination_obj():
             report_df = pd.DataFrame(data=report_infos,
                                      columns=['video_id', 'timeline', 'claimed', 'uploaded', 'is_edited'])
             # report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=',', index=False, encoding='utf-8')
-            report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=',', encoding='utf-8')
+            report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=';', encoding='utf-8')
         return description
 

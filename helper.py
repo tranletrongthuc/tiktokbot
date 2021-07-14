@@ -56,7 +56,7 @@ def load_tags():
         pass
 
     # Get top 20 most common hashtags
-    tags = [tag[0] for tag in collections.Counter(tags).most_common(20)]
+    tags = [tag[0] for tag in collections.Counter(tags).most_common(50)]
     return tags
 
 def load_tags_from_file(tags_file_path=f"{conf.base_dir}/specific_tags.txt"):
@@ -87,12 +87,12 @@ def create_random_verify_FP_random_did():
 
     return verify_FP, random_did
 
-def cluster_videos():
+def cluster_videos(video_data):
     from sklearn.cluster import KMeans
     from sklearn.preprocessing import StandardScaler
 
     print(f"***Clustering video data***")
-    video_data = load_description_data()
+    # video_data = load_description_data()
 
     X = video_data[['views','hearts','comments','shares','duration']]
     X = StandardScaler().fit_transform(X)

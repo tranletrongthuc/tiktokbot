@@ -178,12 +178,12 @@ def restore_conbine_videos(comb_ids_for_restore):
 
 
 # MODE 4 -------------------------------------------------------------
-def conbine_videos(min_duration=900, no_claimed=True, min_views=100, by_author = False):
+def conbine_videos(min_duration=900, no_claimed=True, min_views=100):
     # videos_info = pd.read_csv(video_description_path, sep=";", header=None, encoding='utf-8', engine='python')
 
-    # videos_info = load_description_data()
+    videos_info = helper.load_description_data()
 
-    videos_info, labels = helper.cluster_videos()
+    videos_info, labels = helper.cluster_videos(videos_info)
 
     # original_music_condition = videos_info[5].str.lower().str.contains("original")
     if no_claimed:
@@ -226,8 +226,43 @@ def conbine_videos(min_duration=900, no_claimed=True, min_views=100, by_author =
                 # comb.concatenate_media()
                 combination_df = pd.DataFrame(columns=comb_df.columns)
 
-
 # MODE 5 -------------------------------------------------------------
+def combine_videos_by_author(min_avg_views = 100):
+    videos_info = helper.load_description_data()
+    videos_by_author_info = videos_info.reset_index().groupby('author').mean()
+    videos_by_author_info = videos_by_author_info[videos_by_author_info['views'] >= min_avg_views]
+    authors = list(videos_by_author_info.index)
+
+    for author in authors:
+        if os.path.exists(f"{conf.combination_dir}/{author}"):
+            print(f"{author} has existed.")
+            continue
+
+        posts = api.byUsername(author, count=1000)
+
+        get_video_info(posts, author)
+
+        by_author_dict = [video_obj(post).create_datapoint() for post in posts]
+        by_author_df = pd.DataFrame(by_author_dict).set_index('id')
+        by_author_df = by_author_df[by_author_df['views'] > 3]
+
+        if len(by_author_df) >= 10:
+            mean_view = by_author_df['views'].mean()
+            by_author_df, labels = helper.cluster_videos(by_author_df)
+
+            grouped =  by_author_df.groupby('label').mean('views')
+            grouped = grouped[grouped['views'] > mean_view]
+            over_mean_labels = list(grouped.index)
+
+            by_author_df = by_author_df[by_author_df['label'].isin(over_mean_labels)]
+
+        by_author_df = by_author_df.sort_values('views', ascending=False)
+        # by_author_df = videos_info[videos_info['author'] == author]
+        comb = combination_obj(by_author_df, conf.combination_dir, id=author)
+        comb.create_description()
+        comb.concatenate_media()
+
+# MODE 6 -------------------------------------------------------------
 def update_info(report_only = True):
     report_dir = f'{conf.base_dir}/reports'
 
@@ -276,7 +311,7 @@ def update_info(report_only = True):
 
     for row in report_data.values:
         video_description_data.loc[row[0], ['claimed', 'last_update']] = [row[2],time.strftime(conf.time_str_format)]
-        video_description_data.loc[row[0], 'uploaded'] += 1
+        video_description_data.loc[row[0], 'uploaded'] += row[3]
 
     video_description_data = video_description_data[video_description_data['tk_id'].notnull()]
     helper.save_description_data(video_description_data)
@@ -300,7 +335,7 @@ if __name__ == "__main__":
                         help='[mode_4] Min duration in seconds for each combination', default=900)
     parser.add_argument('-nocla', '--noclaimed', help='[mode_4] Min duration in seconds for each combination',
                         action="store_true")
-    parser.add_argument('-rp', '--reportonly', help='[mode_5] Only update data from report, else update all records from Tiktok',
+    parser.add_argument('-rp', '--reportonly', help='[mode_6] Only update data from report, else update all records from Tiktok',
                         action="store_true")
     args = parser.parse_args()
 
@@ -310,7 +345,8 @@ if __name__ == "__main__":
             -md 2 ==> Get videos by Top20 common hashtags from db OR specific ones from file {conf.base_dir}/specific_tags.txt \n
             -md 3 ==> Restore and continue creating combinations from file {conf.base_dir}/comb_ids_for_restore.txt \n
             -md 4 ==> Combine videos \n
-            -md 5 ==> Update video from combined videos
+            -md 5 ==> Combine videos by author \n
+            -md 6 ==> Update video from combined videos
 
             parser.add_argument('-md', '--mode', type=int, help='running mode', default=-1)
             parser.add_argument('-ntop', '--ntoptrending', type=int, help='[mode_1] Top n videos trending', default=200000)
@@ -321,7 +357,7 @@ if __name__ == "__main__":
             parser.add_argument('-min_v', '--minviews', type=int, help='[mode_4] Min views in million for each video in combination', default=50)
             parser.add_argument('-min_d', '--minduration', type=int, help='[mode_4] Min duration in seconds for each combination', default=900)
             parser.add_argument('-nocla', '--noclaimed', help='[mode_4] Min duration in seconds for each combination', action="store_true")
-            parser.add_argument('-rp', '--reportonly', help='[mode_5] Only update data from report, else update all records from Tiktok', action="store_true")
+            parser.add_argument('-rp', '--reportonly', help='[mode_6] Only update data from report, else update all records from Tiktok', action="store_true")
             """
         print(md_info)
     elif args.mode == 1:
@@ -337,6 +373,8 @@ if __name__ == "__main__":
     elif args.mode == 4:
         conbine_videos(args.minduration, no_claimed=args.noclaimed, min_views=args.minviews)
     elif args.mode == 5:
+        combine_videos_by_author()
+    elif args.mode == 6:
         update_info(args.reportonly)
     else:
         print("Please choose mode. run -h for more detail")
