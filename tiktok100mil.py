@@ -178,7 +178,7 @@ def restore_conbine_videos(comb_ids_for_restore):
 
 
 # MODE 4 -------------------------------------------------------------
-def conbine_videos(min_duration=900, no_claimed=True, min_views=100):
+def conbine_videos(min_duration=900, no_claimed=True, min_views=100, by_author = False):
     # videos_info = pd.read_csv(video_description_path, sep=";", header=None, encoding='utf-8', engine='python')
 
     # videos_info = load_description_data()
@@ -192,9 +192,9 @@ def conbine_videos(min_duration=900, no_claimed=True, min_views=100):
         no_claim_condition = (videos_info['claimed'] <= 1)
 
     has_never_uploaded_condition = (videos_info['uploaded'] == 0)
-    over_min_condition = (videos_info['views'] >= min_views)
     # existed_path_condition = videos_info['local_download_path'].apply(lambda x: os.path.isfile(x))
 
+    over_min_condition = (videos_info['views'] >= min_views)
     videos_info = videos_info[
                 has_never_uploaded_condition &
                 no_claim_condition &
@@ -228,7 +228,7 @@ def conbine_videos(min_duration=900, no_claimed=True, min_views=100):
 
 
 # MODE 5 -------------------------------------------------------------
-def update_info():
+def update_info(report_only = True):
     report_dir = f'{conf.base_dir}/reports'
 
     # backup old video_infos file
@@ -238,32 +238,34 @@ def update_info():
                     f"{conf.base_dir}/history/video_descriptions_{time.strftime('%d_%m_%Y_%H_%M_%S')}.csv")
 
     video_description_data = helper.load_description_data()
-    for url in tqdm(list(video_description_data['post_url']), desc=f"Updating existing video data info: ", position=0,
-                    leave=True):
-        try:
-            verify_FP_, random_did_ = helper.create_random_verify_FP_random_did()
-            video_item = api.getTikTokByUrl(url, custom_verifyFp=verify_FP_, custom_did=random_did_)
-            if video_item['statusCode'] != 0:
+
+    if not report_only:
+        for url in tqdm(list(video_description_data['post_url']), desc=f"Updating existing video data info: ", position=0,
+                        leave=True):
+            try:
+                verify_FP_, random_did_ = helper.create_random_verify_FP_random_did()
+                video_item = api.getTikTokByUrl(url, custom_verifyFp=verify_FP_, custom_did=random_did_)
+                if video_item['statusCode'] != 0:
+                    continue
+            except Exception as e:
+                print(e)
+                time.sleep(5)
                 continue
-        except Exception as e:
-            print(e)
-            time.sleep(5)
-            continue
 
-        video = video_obj(video_item['itemInfo']['itemStruct'])
+            video = video_obj(video_item['itemInfo']['itemStruct'])
 
-        try:
-            columns_to_update = list(conf.description_datapoint.keys())[1:14]
-            values_to_update = list(video.create_datapoint().values())[1:14]
-            video_description_data.loc[video.id, columns_to_update] = values_to_update
-            video_description_data.loc[video.id, 'last_update'] = time.strftime(conf.time_str_format)
-        except Exception as e:
-            print(e)
+            try:
+                columns_to_update = list(conf.description_datapoint.keys())[1:14]
+                values_to_update = list(video.create_datapoint().values())[1:14]
+                video_description_data.loc[video.id, columns_to_update] = values_to_update
+                video_description_data.loc[video.id, 'last_update'] = time.strftime(conf.time_str_format)
+            except Exception as e:
+                print(e)
 
-        # if video.id not in [v['id'] for v in existing_videos]:
-        #     existing_videos.append(video.create_datapoint())
+            # if video.id not in [v['id'] for v in existing_videos]:
+            #     existing_videos.append(video.create_datapoint())
 
-        time.sleep(0.1)
+            time.sleep(0.1)
 
     # update date from reports
     report_data = pd.DataFrame()
@@ -298,6 +300,8 @@ if __name__ == "__main__":
                         help='[mode_4] Min duration in seconds for each combination', default=900)
     parser.add_argument('-nocla', '--noclaimed', help='[mode_4] Min duration in seconds for each combination',
                         action="store_true")
+    parser.add_argument('-rp', '--reportonly', help='[mode_5] Only update data from report, else update all records from Tiktok',
+                        action="store_true")
     args = parser.parse_args()
 
     if args.mode == 0:
@@ -317,6 +321,7 @@ if __name__ == "__main__":
             parser.add_argument('-min_v', '--minviews', type=int, help='[mode_4] Min views in million for each video in combination', default=50)
             parser.add_argument('-min_d', '--minduration', type=int, help='[mode_4] Min duration in seconds for each combination', default=900)
             parser.add_argument('-nocla', '--noclaimed', help='[mode_4] Min duration in seconds for each combination', action="store_true")
+            parser.add_argument('-rp', '--reportonly', help='[mode_5] Only update data from report, else update all records from Tiktok', action="store_true")
             """
         print(md_info)
     elif args.mode == 1:
@@ -332,6 +337,6 @@ if __name__ == "__main__":
     elif args.mode == 4:
         conbine_videos(args.minduration, no_claimed=args.noclaimed, min_views=args.minviews)
     elif args.mode == 5:
-        update_info()
+        update_info(args.reportonly)
     else:
         print("Please choose mode. run -h for more detail")
