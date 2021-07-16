@@ -41,7 +41,8 @@ class video_obj():
         self.claimed = 0
         self.uploaded = 0
         self.last_update = time.strftime(conf.time_str_format)
-        self.is_downloaded = self.check_download()
+        # self.is_downloaded = self.check_download()
+        self.is_downloaded = 0
 
     def create_datapoint(self):
         datapoint = conf.description_datapoint.copy()
@@ -67,13 +68,13 @@ class video_obj():
         datapoint['is_downloaded'] = self.is_downloaded
         return datapoint
 
-    def check_download(self):
-        # video_info_data = pd.read_csv(self.total_video_info_path, sep=";", header=None, encoding='utf-8', engine='python')
-        video_info_data = helper.load_description_data()
-        if self.id in video_info_data.index:
-            return 1
-        else:
-            return 0
+    # def check_download(self):
+    #     # video_info_data = pd.read_csv(self.total_video_info_path, sep=";", header=None, encoding='utf-8', engine='python')
+    #     video_info_data = helper.load_description_data()
+    #     if self.id in video_info_data.index:
+    #         return 1
+    #     else:
+    #         return 0
 
     def make_line_for_save(self):
         return [self.id, self.author, self.views, self.tags, self.duration, self.music, self.post_url,
@@ -88,18 +89,30 @@ class video_obj():
             downloader.download(self.local_download_path)
             download_success = True
         except Exception as e:
-            print(e)
+            print(f"{self.id} - Can't download. Trying...")
+
+            try:
+                tk_api = TikTokApi.get_instance(use_test_endpoints=True)
+                verify_FP_comb, random_did_comb = helper.create_random_verify_FP_random_did()
+                downloaded_video_bytes = tk_api.get_Video_By_Url(self.post_url, custom_verifyFp=verify_FP_comb, custom_did=random_did_comb)
+
+                with open(self.local_download_path, "wb") as out_file:  # open for [w]riting as [b]inary
+                    out_file.write(downloaded_video_bytes)
+
+                download_success = True
+                print(f"{self.id} - Downloading successed")
+            except Exception as e:
+                print(f"{self.id} - [Last] Can't download.")
 
         if download_success:
             video_info_df = helper.load_description_data()
-            if self.is_downloaded == 1:
+            try:
                 video_info_df.update(pd.DataFrame([self.create_datapoint()]).set_index('id'))
                 # columns_to_update = list(conf.description_datapoint.keys())[1:15]
                 # values_to_update = list(self.create_datapoint().values())[1:15]
                 # video_info_df.loc[self.id, columns_to_update] = values_to_update
-
-            elif self.is_downloaded == 0:
-                self.is_downloaded = 1
+            except:
+                # self.is_downloaded = 1
                 video_info_df = video_info_df.append(pd.DataFrame([self.create_datapoint()]).set_index('id'))
             helper.save_description_data(video_info_df)
         return download_success
@@ -108,6 +121,7 @@ class combination_obj():
     def __init__(self, info_df, all_comb_dir, id=None, restore=False):
         self.id = ''.join(random.choices(string.ascii_lowercase, k=15)) if id == None else id
         self.info_df = info_df if restore else self.sort_df(info_df)
+        self.report_df = None
         self.author_col = 'author'
         self.post_info_col = ['author', 'author_name', 'views', 'hearts', 'comments', 'shares', 'tags', 'duration',
                               'claimed', 'uploaded']
@@ -121,6 +135,7 @@ class combination_obj():
         self.edited_videos_dir = f"{self.comb_dir}/edited"
         self.snapshot_dir = f"{self.comb_dir}/snapshot"
         self.concatenated_media_path = f"{self.comb_dir}/{self.id}.mp3"
+        self.report_path = f"{self.comb_dir}/report_{self.id}.csv"
         self.intro_path = f"{self.comb_dir}/intro_{self.id}.mp4"
         self.total_duration = 0
         self.video_timeline = []
@@ -148,6 +163,27 @@ class combination_obj():
                                .replace("\\", "/")
                            for path in list(self.info_df[self.path_col])]
 
+    def create_report(self):
+        report_infos = [[row[0], timeline[2:], row[16], row[17], 0] for timeline, row in
+                        zip(self.video_timeline, list(self.info_df.reset_index().values))]
+        report_df = pd.DataFrame(data=report_infos,
+                                 columns=['video_id', 'timeline', 'claimed', 'uploaded', 'is_edited'])
+        report_df.index += 1
+        report_df.index.rename('priority', inplace=True)
+        report_df.to_csv(self.report_path, sep=';', encoding='utf-8')
+
+        self.report_df = report_df
+
+    def load_report(self):
+        self.report_df = pd.read_csv(self.report_path, sep=";", encoding='utf-8')
+
+    def save_report(self):
+        self.report_df.to_csv(self.report_path, sep=";", index=None, encoding='utf-8')
+
+    def update_report(self, video_name, column_name, column_value):
+        self.report_df.loc[self.report_df['video_id'] == video_name, column_name] = column_value
+        self.save_report()
+
     def make_combination_files(self):
         if not os.path.exists(conf.combination_dir):
             os.mkdir(conf.combination_dir)
@@ -161,7 +197,9 @@ class combination_obj():
             os.mkdir(self.snapshot_dir)
 
         tk_api = TikTokApi.get_instance(use_test_endpoints=True)
-        download_failed = []
+        download_failed_list = []
+
+        print(f"Downloading {len(self.info_df)} in about {timedelta(seconds=2*len(self.info_df))}....")
         for video_id, row in self.info_df.iterrows():
             verify_FP_comb, random_did_comb = helper.create_random_verify_FP_random_did()
             video_info = tk_api.getTikTokByUrl(row[12], custom_verifyFp=verify_FP_comb, custom_did=random_did_comb)
@@ -171,19 +209,17 @@ class combination_obj():
                 time.sleep(1)
                 download_success = video_item.download()
                 if not download_success:
-                    download_failed.append(video_id)
+                    download_failed_list.append(video_id)
                 else:
                     self.info_df.loc[video_item.id, 'local_download_path'] = video_item.local_download_path
                 time.sleep(1)
             else:
-                download_failed.append(video_id)
+                download_failed_list.append(video_id)
 
-        self.info_df = self.info_df.drop(download_failed)
+        # Save failed list to file
+        self.info_df.loc[download_failed_list,'post_url'].to_csv(self.report_path.replace('report','failed'), sep=";", index=None, encoding='utf-8')
 
-        # for path in self.file_paths:
-        #     video_dir, video_name = os.path.split(path)
-        #     if not os.path.exists(os.path.join(self.src_videos_dir, video_name)):
-        #         shutil.copyfile(path, os.path.join(self.src_videos_dir, video_name))
+        self.info_df = self.info_df.drop(download_failed_list)
 
         print(f"Create new Combination files in {self.src_videos_dir}")
 
@@ -273,11 +309,12 @@ class combination_obj():
             shutil.copyfile(f"{conf.source_dir}/intro_background.mp4", self.intro_path)
 
     def create_single_video(self, video_index, video_path, next_video_path=None):
-        video = mp.VideoFileClip(video_path).resize(height=1080).crossfadein(0.5)
         video_name = Path(video_path).name.replace(".mp4", "")
 
-        # Get video infomation from data
-        # video_info = self.info_df.loc[video_name][['author_name', 'views']]
+        # Update Doing processing to report BEFORE creating video
+        self.update_report(video_name, 'is_edited', 0.5)
+
+        video = mp.VideoFileClip(video_path).resize(height=1080).crossfadein(0.5)
 
         # Create 2 side posters
         left_side_text = f"{self.info_df.loc[video_name]['author_name'].replace('[','').replace(']','')}"
@@ -329,26 +366,20 @@ class combination_obj():
         edited_video.write_videofile(f"{self.edited_videos_dir}/{video_index + 1}_{video_name}.mp4", fps=30,
                                      logger=None)
 
-        # Update to report
-        report_path = f"{self.comb_dir}/report_{self.id}.csv"
-        report_data = pd.read_csv(report_path, sep=";", encoding='utf-8', engine='python')
-        report_data.loc[report_data['video_id'] == video_name, "is_edited"] = 1
-        report_data.to_csv(report_path, sep=";", index=None, encoding='utf-8')
+        # Update Finish processing to report AFTER creating video
+        self.update_report(video_name,"is_edited",1 )
 
         return edited_video
 
     def concatenate_media(self):
         video_index = 0
-        report_path = f"{self.comb_dir}/report_{self.id}.csv"
-        report_data = pd.read_csv(report_path, sep=";", encoding='utf-8', engine='python')
-
-        # videos = []
-        # videos.append(self.intro_video)
 
         for video_path in tqdm(self.file_paths, desc=f"Start CONCATENATING videos for {self.id}: ", position=0, leave=True):
             video_name = Path(video_path).name
 
-            if report_data.loc[report_data['video_id'] == video_name.replace(".mp4", ""), "is_edited"].values[0] == 0:
+            self.load_report()
+
+            if self.report_df.loc[self.report_df['video_id'] == video_name.replace(".mp4", ""), "is_edited"].values[0] == 0:
                 # create new video
                 if video_index < (len(self.file_paths) - 1):
                     edited_video = self.create_single_video(video_index, video_path, self.file_paths[video_index + 1])
@@ -399,13 +430,8 @@ class combination_obj():
         with open(os.path.join(self.comb_dir, f"description_{self.id}.txt"), 'w', encoding='utf-8') as des_f:
             des_f.write(description)
 
-        # create report file
-        if not self.is_restored:
-            report_infos = [[row[0], timeline[2:], row[16], row[17], 0] for timeline, row in
-                            zip(self.video_timeline, list(self.info_df.reset_index().values))]
-            report_df = pd.DataFrame(data=report_infos,
-                                     columns=['video_id', 'timeline', 'claimed', 'uploaded', 'is_edited'])
-            # report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=',', index=False, encoding='utf-8')
-            report_df.to_csv(os.path.join(self.comb_dir, f"report_{self.id}.csv"), sep=';', encoding='utf-8')
+        # # create report file
+        # if not self.is_restored:
+        #     self.create_report()
         return description
 

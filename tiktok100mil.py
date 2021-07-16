@@ -172,6 +172,7 @@ def restore_conbine_videos(comb_ids_for_restore):
 
         comb = combination_obj(restoring_combination_df, all_comb_dir=output_dir, id=comb_id, restore=True)
         comb.create_description()
+        comb.load_report()
         comb.concatenate_media()
 
         print(f"Finish restoring combination {comb_id}")
@@ -209,7 +210,7 @@ def conbine_videos(min_duration=900, no_claimed=True, min_views=100):
             if sum(comb_df['duration']) <= min_duration:
                 comb = combination_obj(comb_df, conf.combination_dir)
                 comb.create_description()
-                # comb.concatenate_media()
+                comb.create_report()
                 comb_df.drop(comb_df.index, inplace=True)
                 print(f"Break {conf.combination_dir}")
                 break
@@ -223,7 +224,7 @@ def conbine_videos(min_duration=900, no_claimed=True, min_views=100):
                 # combination_df.sort_values(by=[2])
                 comb = combination_obj(combination_df, conf.combination_dir)
                 comb.create_description()
-                # comb.concatenate_media()
+                comb.create_report()
                 combination_df = pd.DataFrame(columns=comb_df.columns)
 
 # MODE 5 -------------------------------------------------------------
@@ -238,29 +239,34 @@ def combine_videos_by_author(min_avg_views = 100):
             print(f"{author} has existed.")
             continue
 
-        posts = api.byUsername(author, count=1000)
+        try:
+            verify_FP_author, random_did_author = helper.create_random_verify_FP_random_did()
+            posts = api.byUsername(author, count=1000, custom_verifyFp=verify_FP_author, custom_did=random_did_author)
+        except Exception as e:
+            print(e)
+            continue
 
         get_video_info(posts, author)
 
         by_author_dict = [video_obj(post).create_datapoint() for post in posts]
         by_author_df = pd.DataFrame(by_author_dict).set_index('id')
-        by_author_df = by_author_df[by_author_df['views'] > 3]
+        by_author_df = by_author_df[by_author_df['views'] > 1]
 
-        if len(by_author_df) >= 10:
-            mean_view = by_author_df['views'].mean()
-            by_author_df, labels = helper.cluster_videos(by_author_df)
-
-            grouped =  by_author_df.groupby('label').mean('views')
-            grouped = grouped[grouped['views'] > mean_view]
-            over_mean_labels = list(grouped.index)
-
-            by_author_df = by_author_df[by_author_df['label'].isin(over_mean_labels)]
+        # if len(by_author_df) >= 10:
+        #     mean_view = by_author_df['views'].mean()
+        #     by_author_df, labels = helper.cluster_videos(by_author_df)
+        #
+        #     grouped =  by_author_df.groupby('label').mean('views')
+        #     grouped = grouped[grouped['views'] > mean_view]
+        #     over_mean_labels = list(grouped.index)
+        #
+        #     by_author_df = by_author_df[by_author_df['label'].isin(over_mean_labels)]
 
         by_author_df = by_author_df.sort_values('views', ascending=False)
         # by_author_df = videos_info[videos_info['author'] == author]
         comb = combination_obj(by_author_df, conf.combination_dir, id=author)
         comb.create_description()
-        comb.concatenate_media()
+        comb.create_report()
 
 # MODE 6 -------------------------------------------------------------
 def update_info(report_only = True):
