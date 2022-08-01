@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load static %}
+
+
+{% block content %}
+<!-- Blog Page -->
+<div class="contact__warp">
+	<form class="contact__form" action="/tk100m/get_trending" method="post" id="form-get-trending">
+		{% csrf_token %}
+		<input type="number" id="ntop" name="ntop" min="5" max="2000" placeholder="Number of top video trending">
+		<button class="site-btn" type="submit">Get videos</button>
+	</form>
+</div>
+<section class="blog__page">
+	<div class="blog__warp">
+		<div class="row blog__grid text-white" id="trending-result">
+		</div>
+	</div>
+</section>
+<!-- Blog Page end -->
+{% endblock %}
+
+{% block script %}
+<script>
+$(document).on('submit', '#form-get-trending',function(e){
+	e.preventDefault();
+    $.ajax({
+        type:'POST',
+        url:'{% url "get_trending" %}',
+        data:{
+            ntop:$('#ntop').val(),
+            csrfmiddlewaretoken:$('input[name=csrfmiddlewaretoken]').val(),
+        },
+        success:function(data_json){
+			let trending_result = '';
+			let num_per_set = 5;
+			let total = parseInt($('#ntop').val());
+			let set_num = parseInt(total/num_per_set);
+			let reminder = total - set_num*num_per_set;
+
+			for (let i = 0; i < set_num; i++) {
+				r0 = data_json['result_data'][i*num_per_set];
+				r1 = data_json['result_data'][(i*num_per_set)+1];
+				r2 = data_json['result_data'][(i*num_per_set)+2];
+				r3 = data_json['result_data'][(i*num_per_set)+3];
+				r4 = data_json['result_data'][(i*num_per_set)+4];
+
+			  	trending_result += `
+				  <div class="col-lg-8 col-xl-9">
+					<div class="row">
+						<div class="col-md-8 col-lg-7 col-xl-8">
+							<div class="blog__item set-bg" data-setbg="${r0['cover_url']}" style='background-image: url(${r0["cover_url"]});'>
+								<div class="blog__content">
+									<div class="blog__date">${r0['author']} ${r0['author_name']} | ${r0['last_update']}</div>
+									<h3>
+										<a href="./blog-single.html">
+											${r0['views']}M 👁 | ${r0['hearts']}M ❤ | ${r0['comments']}K 💬 | ${r0['shares']}K 🔗
+										</a>
+									</h3>
+								</div>
+							</div>
+							<div class="post__tags">
+								<a href="#">Camera</a>
+								<a href="#">Photography</a>
+								<a href="#">Tips</a>
+							</div>
+						</div>
+						<div class="col-md-4 col-lg-5 col-xl-4">
+							<div class="blog__item set-bg" data-setbg="${r1['cover_url']}" style='background-image: url(${r1["cover_url"]});'>
+								<div class="blog__content">
+									<div class="blog__date">${r1['author']} ${r1['author_name']} | ${r1['last_update']}</div>
+									<h4>
+										<a href="./blog-single.html">
+											${r1['views']}M 👁 | ${r1['hearts']}M ❤ | ${r1['comments']}K 💬 | ${r1['shares']}K 🔗
+										</a>
+									</h4>
+								</div>
+							</div>
+						</div>
+						<div class="col-md-4 col-lg-5 col-xl-4">
+							<div class="blog__item set-bg" data-setbg="${r2['cover_url']}" style='background-image: url(${r2["cover_url"]});'>
+								<div class="blog__content">
+									<div class="blog__date">${r2['author']} ${r2['author_name']} | ${r2['last_update']}</div>
+									<h4>
+										<a href="./blog-single.html">
+											${r2['views']}M 👁 | ${r2['hearts']} ❤ | ${r2['comments']} 💬 | ${r2['shares']} 🔗
+										</a>
+									</h4>
+								</div>
+							</div>
+						</div>
+						<div class="col-md-8 col-lg-7 col-xl-8">
+							<div class="blog__item set-bg" data-setbg="${r3['cover_url']}" style='background-image: url(${r3["cover_url"]});'>
+								<div class="blog__content">
+									<div class="blog__date">${r3['author']} ${r3['author_name']} | ${r3['last_update']}</div>
+									<h3>
+										<a href="./blog-single.html">
+											${r3['views']}M 👁 | ${r3['hearts']}M ❤ | ${r3['comments']}K 💬 | ${r3['shares']}K 🔗
+										</a>
+									</h3>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-4 col-xl-3">
+					<div class="blog__item blog__item--long set-bg" data-setbg="${r4['cover_url']}" style='background-image: url(${r4["cover_url"]});'>
+						<div class="blog__content">
+							<div class="blog__date">${r4['author']} ${r4['author_name']} | ${r4['last_update']}</div>
+							<h4>
+								<a href="./blog-single.html">
+									${r4['views']}M 👁 | ${r4['hearts']}M ❤ | ${r4['comments']}K 💬 | ${r4['shares']}K 🔗
+								</a>
+							</h4>
+						</div>
+					</div>
+				</div>
+			 `
+			}
+			document.getElementById("trending-result").innerHTML = trending_result;
+			//console.log(trending_result);
+        },
+        error : function(xhr,errmsg,err) {
+        console.log(xhr.status + ": " + xhr.responseText); // provide a bit more info about the error to the console
+    }
+    });
+});
+</script>
+{% endblock script %}

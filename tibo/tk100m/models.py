@@ -1,0 +1,51 @@
+from django.db import models
+from django.contrib.postgres.fields import ArrayField
+
+# Create your models here.
+class Video_md(models.Model):
+    author = models.CharField(max_length=50)
+    author_name = models.CharField(max_length=50)
+    tk_id = models.CharField(max_length=50)
+    id = models.CharField(max_length=50)
+    views = models.FloatField()
+    hearts = models.FloatField()
+    comments = models.FloatField()
+    shares = models.FloatField()
+    created_date = models.DateField()
+    tags = models.CharField(max_length=150)
+    duration = models.IntegerField()
+    music = models.CharField(max_length=100)
+    music_url = models.CharField(max_length=200)
+    post_url = models.CharField(max_length=200)
+    local_download_path = models.CharField(max_length=200)
+    edited_path = models.CharField(max_length=200)
+    claimed = models.IntegerField()
+    uploaded = models.IntegerField()
+    last_update = models.DateField()
+    is_downloaded = models.IntegerField()
+
+class CombinationReport_md(models.Model):
+    id = models.CharField(max_length=50)
+    priority = models.CharField(max_length=50)
+    video_id = models.CharField(max_length=50)
+    timeline = models.CharField(max_length=15)
+    claimed = models.IntegerField()
+    uploaded = models.IntegerField()
+    is_edited = models.IntegerField()
+
+class Combination_md(models.Model):
+    id = models.CharField(max_length=50)
+    report_df = models.OneToOneField(CombinationReport_md, on_delete=models.CASCADE)
+    authors = ArrayField(models.CharField(max_length=50))
+    tags = ArrayField(models.CharField(max_length=150))
+    file_paths = ArrayField(models.CharField(max_length=200))
+    comb_dir = models.CharField(max_length=200)
+    src_videos_dir = models.CharField(max_length=200)
+    edited_videos_dir = models.CharField(max_length=200)
+    snapshot_dir = models.CharField(max_length=200)
+    concatenated_media_path = models.CharField(max_length=200)
+    report_path = models.CharField(max_length=200)
+    intro_path = models.CharField(max_length=200)
+    total_duration = models.IntegerField()
+    created_time = models.DateField()
+    is_restored = models.IntegerField()
